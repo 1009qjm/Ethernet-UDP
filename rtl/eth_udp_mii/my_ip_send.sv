@@ -4,7 +4,7 @@
 // Create Date   : 2024/11/02
 // Module Name   : ip_send
 // Project Name  : eth_udp_rmii
-// Description   : UDP协议数据发�?�模�?
+// Description   : UDP data sender
 // Revision      : V1.0
 // Additional Comments:
 ////////////////////////////////////////////////////////////////////////
@@ -13,21 +13,21 @@ module my_ip_send
 #(
     parameter   BOARD_MAC   = 48'hFF_FF_FF_FF_FF_FF ,   //板卡MAC地址
     parameter   BOARD_IP    = 32'hFF_FF_FF_FF       ,   //板卡IP地址
-    parameter   BOARD_PORT  = 16'd1234              ,   //板卡端口�?
+    parameter   BOARD_PORT  = 16'd1234              ,   //板卡端口号
     parameter   PC_MAC      = 48'hFF_FF_FF_FF_FF_FF ,   //PC机MAC地址
     parameter   PC_IP       = 32'hFF_FF_FF_FF       ,   //PC机IP地址
     parameter   PC_PORT     = 16'd1234                  //PC机端口号
 )
 (
     input   logic            sys_clk         ,   //时钟信号
-    input   logic            sys_rst_n       ,   //复位信号,低电平有�?
-    input   logic            send_en         ,   //数据发�?�开始信�?
-    input   logic    [31:0]  send_data       ,   //发�?�数�?
-    input   logic    [15:0]  send_data_num   ,   //发�?�数据有效字节数
+    input   logic            sys_rst_n       ,   //复位信号
+    input   logic            send_en         ,   //send start
+    input   logic    [31:0]  send_data       ,   //
+    input   logic    [15:0]  send_data_num   ,   //
     input   logic    [31:0]  crc_data        ,   //CRC校验数据
     input   logic    [3:0]   crc_next        ,   //CRC下次校验完成数据
 
-    output  logic            send_end        ,   //单包数据发�?�完成标志信�?
+    output  logic            send_end        ,   //send end flag
     output  logic            read_data_req   ,   //读FIFO使能信号
     output  logic            eth_tx_en       ,   //输出数据有效信号
     output  logic    [3:0]   eth_tx_data     ,   //输出数据
@@ -50,19 +50,19 @@ typedef enum {
 
 localparam ETH_TYPE = 16'h0800    ;    //协议类型 IP协议
 //
-logic             rise_send_en    ;   //数据发�?�开始信号上升沿
-logic     [15:0]  send_data_len   ;   //实际发�?�的数据字节�?
+logic             rise_send_en    ;
+logic     [15:0]  send_data_len   ;   //send data length after padding
 //
-logic             send_en_dly     ;   //数据发�?�开始信号打�?
+logic             send_en_dly     ;
 logic     [7:0]   packet_head[7:0];   //数据包头
-logic     [7:0]   eth_head[13:0]  ;   //以太网首�?
+logic     [7:0]   eth_head[13:0]  ;   //以太网head
 logic     [31:0]  ip_udp_head[6:0];   //IP首部 + UDP首部
 logic     [31:0]  check_sum       ;   //IP首部check_sum校验
 logic     [15:0]  data_len        ;   //有效数据字节个数
-logic     [15:0]  ip_len          ;   //IP字节�?
-logic     [15:0]  udp_len         ;   //UDP字节�?
+logic     [15:0]  ip_len          ;   //IP length
+logic     [15:0]  udp_len         ;   //UDP length
 //fsm
-state_t           state,nxt_state ;   //状�?�机状�?�变�?
+state_t           state,nxt_state ;
 logic             check_sum_end   ;
 logic             packet_end      ;
 logic             eth_head_end    ;
@@ -71,11 +71,10 @@ logic             send_data_end   ;
 logic             crc_end         ;
 logic             idle_end        ;
 //cnt
-logic     [4:0]   cnt_byte        ;   //数据计数�?
-logic     [2:0]   cnt_4bit        ;   //发�?�数据比特计数器
+logic     [4:0]   cnt_byte        ;   //counter
+logic     [2:0]   cnt_4bit        ;   //count in 4bit
 //
-logic     [15:0]  data_cnt        ;   //发�?�有效数据个数计数器
-logic     [4:0]   cnt_add         ;   //发�?�有效数据小�?18字节,补充字节计数�?
+logic     [15:0]  data_cnt        ;   //count in byte(s)
 
 //****************************************************************//
 //*************************** Main Code **************************//
@@ -212,9 +211,8 @@ always_ff@(posedge sys_clk or negedge sys_rst_n) begin
         udp_len  <= send_data_num + 16'd8;
     end
 end
-//send_data_len:实际发�?�的数据字节�?
-//以太网传输字节数�?小为46个字�?,其中包括20字节的IP首部�?8字节的UDP首部
-//有效数据�?少为18字节
+//send_data_len = data byte count after padding
+//46Byte(min length) - 20Byte(ip head) - 8Byte(udp head) = 18Byte
 assign  send_data_len = (data_len >= 16'd18) ? data_len : 16'd18;          //data_len after padding
 
 //state change
@@ -270,7 +268,7 @@ always_comb begin
         default:nxt_state = IDLE;
     endcase
 end
-//cnt_byte:数据计数�?,对以太网传输的除有效字节数据之外的其他数据计�?,不同状�?�下单位不同
+//cnt_byte
 always_ff@(posedge sys_clk or negedge sys_rst_n) begin
     if(~sys_rst_n) begin
         cnt_byte <= 5'd0;
@@ -342,7 +340,7 @@ assign eth_head_end    = (state == ETH_HEAD) && (cnt_byte == 5'd13) && (cnt_4bit
 assign ip_udp_head_end = (state == IP_UDP_HEAD) && (cnt_byte == 5'd6) && (cnt_4bit == 3'd7);             //7*8*4 = 32bit*7 = 28Byte 
 assign send_data_end   = (state == SEND_DATA) && (data_cnt == send_data_len - 1'b1) && (cnt_4bit[0] == 1'b1);
 assign crc_end         = (state == CRC) && (cnt_4bit == 3'd7);
-//read_data_req:读FIFO使能信号
+//read_data_req: read fifo enable
 always_ff@(posedge sys_clk or negedge sys_rst_n) begin
     if(sys_rst_n == 1'b0) begin
         read_data_req <= 1'b0;
