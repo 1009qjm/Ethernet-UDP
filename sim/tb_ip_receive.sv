@@ -32,8 +32,8 @@ reg             start_flag          ;   //数据输入�?始标志信�?
 
 //wire define
 wire            rec_end             ;   //数据接收使能信号
-wire    [3:0]   rec_en              ;   //接收数据
-wire            rec_data            ;   //数据包接收完成信�?
+wire            rec_en              ;   //接收数据
+wire    [31:0]  rec_data            ;   //数据包接收完成信�?
 wire            rec_data_num        ;   //接收数据字节�?
 wire    [3:0]   eth_rx_data         ;   //PHY芯片输入数据
 
@@ -50,6 +50,8 @@ logic [31:0] src_ip;
 logic [31:0] dest_ip;
 logic [15:0] src_port;
 logic [15:0] dest_port;
+logic [15:0] data_len;
+logic [15:0] data_cnt;
 
 initial begin
     #100
@@ -61,6 +63,38 @@ initial begin
     dest_ip = {data_mem[77],data_mem[76], data_mem[79],data_mem[78], data_mem[81],data_mem[80], data_mem[83],data_mem[82]};             //byte38~byte41
     src_port = {data_mem[85], data_mem[84], data_mem[87], data_mem[86]};                    //byte 42~43
     dest_port = {data_mem[89], data_mem[88], data_mem[91], data_mem[90]};                   //byte 44~45
+    data_len = {data_mem[49],data_mem[48], data_mem[51], data_mem[50]} - 16'd28;            //byte24~byte25
+    //byte50 ~ byte{50+data_len-1}
+end
+//8+14+20+8=50
+always_ff@(posedge eth_rx_clk or negedge sys_rst_n) begin
+    if(~sys_rst_n) begin
+        data_cnt <= 16'd0;
+    end
+    else if(rec_en) begin
+        data_cnt <= data_cnt + 16'd4;
+    end
+end
+//
+logic [31:0] ref_rec_data;
+assign ref_rec_data[7:0] = {data_mem[(53+data_cnt)*2+1], data_mem[(53+data_cnt)*2]};
+assign ref_rec_data[15:8] = {data_mem[(52+data_cnt)*2+1], data_mem[(52+data_cnt)*2]};
+assign ref_rec_data[23:16] = {data_mem[(51+data_cnt)*2+1], data_mem[(51+data_cnt)*2]};
+assign ref_rec_data[31:24] = {data_mem[(50+data_cnt)*2+1], data_mem[(50+data_cnt)*2]};
+//
+always_ff@(negedge eth_rx_clk) begin
+    if(rec_en) begin
+        if(rec_data == ref_rec_data) begin
+            $display("receive right data: %h\n", rec_data);
+            if(rec_end) begin
+                $display("test pass\n");
+            end
+        end
+        else begin
+            $display("receive wrong data: %h, expect to be %h\n", rec_data, ref_rec_data);
+            $finish;
+        end
+    end
 end
 //clk and rst
 initial
