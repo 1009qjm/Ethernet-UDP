@@ -24,28 +24,65 @@ parameter  DES_MAC   = 48'hff_ff_ff_ff_ff_ff;
 //PC机IP地址
 parameter  DES_IP    = {8'd169,8'd254,8'd191,8'd31};
 
-//reg   define
-reg             eth_tx_clk      ;   //PHY芯片发�?�数据时钟信�?
-reg             clk_50m         ;
-reg             sys_rst_n       ;   //系统复位,低电平有�?
-reg             send_en         ;   //数据输入�?始标志信�?
-reg     [31:0]  send_data       ;   //待发送数�?
-reg     [31:0]  data_mem [2:0]  ;   //data_mem是一个存储器,相当于一个ram
-reg     [15:0]  cnt_data        ;   //待发送数�?
+//
+logic             eth_tx_clk      ;
+logic             clk_50m         ;
+logic             sys_rst_n       ;   //系统复位
+logic             send_en         ;   //send start flag
+logic     [31:0]  send_data       ;   //
+logic     [31:0]  data_mem [2:0]  ;   //data_mem是一个存储器,相当于一个ram
+logic     [15:0]  cnt_data        ;
+//
+logic            send_end        ;   //send finished flag 
+logic            read_data_req   ;   //读FIFO使能信号
+logic            eth_tx_en       ;   //输出数据有效信号
+logic    [3:0]   eth_tx_data     ;   //输出数据
+logic            crc_en          ;   //CRC�?始校验使�?
+logic            crc_clr         ;   //CRC复位信号
+logic    [31:0]  crc_data        ;   //CRC校验数据
+logic    [31:0]  crc_next        ;   //CRC下次校验完成数据
 
-//wire define
-wire            send_end        ;   //单包数据发�?�完成标志信�?
-wire            read_data_req   ;   //读FIFO使能信号
-wire            eth_tx_en       ;   //输出数据有效信号
-wire    [3:0]   eth_tx_data     ;   //输出数据
-wire            crc_en          ;   //CRC�?始校验使�?
-wire            crc_clr         ;   //CRC复位信号
-wire    [31:0]  crc_data        ;   //CRC校验数据
-wire    [31:0]  crc_next        ;   //CRC下次校验完成数据
-
-wire            en              ;
-wire    [1:0]   data            ;
-
+logic            en              ;
+logic    [1:0]   data            ;
+//total receive length
+localparam TOTAL_LEN = 8 + 14 + 20 + 8 + 18 + 4;              //8+14(=6+6+2)+20(ip head)+8(udp head)+18(data length after padding)+4(crc)
+logic [8*TOTAL_LEN-1:0] recv_buff;
+logic [31:0]            data_mem_recv [2:0];
+logic                   send_end_dly;
+//recv_buff
+always_ff@(posedge eth_tx_clk or negedge sys_rst_n) begin
+    if(~sys_rst_n) begin
+        recv_buff <= '0;
+    end
+    else if(eth_tx_en) begin
+        recv_buff <= {eth_tx_data, recv_buff[TOTAL_LEN*8-1:4]};
+    end
+end
+//send_end_dly
+always_ff@(posedge eth_tx_clk or negedge sys_rst_n) begin
+    if(~sys_rst_n) begin
+        send_end_dly <= 1'b0;
+    end
+    else begin
+        send_end_dly <= send_end;
+    end
+end
+//
+assign data_mem_recv[0] = {<<byte {recv_buff[50*8+:32]}};                //8+14+20+8=50       byte50~byte53
+assign data_mem_recv[1] = {<<byte {recv_buff[54*8+:32]}};
+assign data_mem_recv[2] = {<<byte {recv_buff[58*8+:32]}};
+//check
+always_ff@(posedge eth_tx_clk) begin
+    if(send_end_dly) begin
+        for(int i = 0; i < 3; i++) begin
+            if(data_mem_recv[i] != data_mem[i]) begin
+                $display("test failed");
+                $finish;
+            end
+        end
+        $display("test pass");
+    end
+end
 //********************************************************************//
 //***************************** Main Code ****************************//
 //********************************************************************//
@@ -112,13 +149,13 @@ ip_send_inst
 (
     .sys_clk        (eth_tx_clk     ),  //时钟信号
     .sys_rst_n      (sys_rst_n      ),  //复位信号
-    .send_en        (send_en        ),  //数据发�?�开始信�?
-    .send_data      (send_data      ),  //发�?�数�?
-    .send_data_num  (16'd10         ),  //发�?�数据有效字节数
+    .send_en        (send_en        ),  //send start flag
+    .send_data      (send_data      ),  //send data
+    .send_data_num  (16'd10         ),  //send data num(byte)
     .crc_data       (crc_data       ),  //CRC校验数据
     .crc_next       (crc_next[31:28]),  //CRC下次校验完成数据
 
-    .send_end       (send_end       ),  //单包数据发�?�完成标志
+    .send_end       (send_end       ),  //send finish flag
     .read_data_req  (read_data_req  ),  //读FIFO使能信号
     .eth_tx_en      (eth_tx_en      ),  //输出数据有效信号
     .eth_tx_data    (eth_tx_data    ),  //输出数据
