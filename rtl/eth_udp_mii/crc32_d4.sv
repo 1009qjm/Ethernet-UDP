@@ -1,7 +1,7 @@
 `timescale  1ns/1ns
 ////////////////////////////////////////////////////////////////////////
 // Author        : qjm
-// Create Date   : 2019/09/03
+// Create Date   : 2024/11/03
 // Module Name   : crc32_d4
 // Project Name  : eth_udp_rmii
 // Description   : CRC校验

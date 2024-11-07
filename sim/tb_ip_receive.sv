@@ -1,7 +1,7 @@
 `timescale  1ns/1ns
 //////////////////////////////////////////////////////////////////////////////////
-// Author: fire
-// Create Date: 2019/09/03
+// Author: qjm
+// Create Date: 2024/11/07
 // Module Name: tb_ip_receive
 // Project Name: ethernet
 // Description: UDP协议数据接收模块
@@ -20,22 +20,20 @@ module  tb_ip_receive();
 parameter  BOARD_MAC = 48'h12_34_56_78_9A_BC;
 //板卡IP地址
 parameter  BOARD_IP  = {8'd169,8'd254,8'd1,8'd23};
-
-//reg   define
-reg             eth_rx_clk          ;   //PHY芯片接收数据时钟信号
-reg             eth_tx_clk          ;   //PHY芯片发�?�数据时钟信�?
-reg             sys_rst_n           ;   //系统复位
-reg             eth_rxdv            ;   //PHY芯片输入数据有效信号
-reg     [3:0]   data_mem [171:0]    ;   //data_mem是一个存储器,相当于一个ram
-reg     [7:0]   cnt_data            ;   //数据包字节计数器
-reg             start_flag          ;   //数据输入�?始标志信�?
-
-//wire define
-wire            rec_end             ;   //数据接收使能信号
-wire            rec_en              ;   //接收数据
-wire    [31:0]  rec_data            ;   //数据包接收完成信�?
-wire            rec_data_num        ;   //接收数据字节�?
-wire    [3:0]   eth_rx_data         ;   //PHY芯片输入数据
+//
+logic             eth_rx_clk          ;
+logic             eth_tx_clk          ;
+logic             sys_rst_n           ;
+logic             eth_rxdv            ;   //PHY芯片输入数据有效信号
+logic     [3:0]   data_mem [171:0]    ;   //data_mem是一个存储器,相当于一个ram
+logic     [7:0]   cnt_data            ;   //数据包字节计数器
+logic             start_flag          ;
+//
+logic             rec_end             ;
+logic             rec_en              ;
+logic     [31:0]  rec_data            ;
+logic             rec_data_num        ;
+logic     [3:0]   eth_rx_data         ;
 
 //********************************************************************//
 //***************************** Main Code ****************************//
