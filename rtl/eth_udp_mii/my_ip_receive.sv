@@ -11,19 +11,20 @@
 
 module my_ip_receive
 #(
+    parameter   ENABLE_CHECKSUM = 1,
     parameter   BOARD_MAC   = 48'h12_34_56_78_9a_bc ,   //板卡MAC地址
     parameter   BOARD_IP    = 32'hA9_FE_01_17           //板卡IP地址
 )
 (
-    input   logic             sys_clk     ,   //时钟信号
-    input   logic             sys_rst_n   ,   //复位信号,低电平有�?
-    input   logic             eth_rxdv    ,   //数据有效信号
-    input   logic     [3:0]   eth_rx_data ,   //输入数据
+    input   logic             sys_clk     ,
+    input   logic             sys_rst_n   ,
+    input   logic             eth_rxdv    ,
+    input   logic     [3:0]   eth_rx_data ,
 
-    output  logic             rec_data_en ,   //数据接收使能信号
-    output  logic     [31:0]  rec_data    ,   //接收数据
-    output  logic             rec_end     ,   //数据包接收完成信�?
-    output  logic     [15:0]  rec_data_num    //接收数据字节�?
+    output  logic             rec_data_en ,
+    output  logic     [31:0]  rec_data    ,
+    output  logic             rec_end     ,
+    output  logic     [15:0]  rec_data_num
 );
 
 //********************************************************************//
@@ -44,29 +45,32 @@ logic     [15:0]  data_len        ;   //有效数据字节长度
 logic             ip_flag         ;   //IP地址正确标志
 logic             mac_flag        ;   //MAC地址正确标志
 //
-logic             eth_rxdv_reg    ;   //数据有效信号打拍
-logic     [3:0]   eth_rx_data_reg ;   //输入数据打拍
-logic             data_sw_en      ;   //数据拼接使能信号
-logic             data_en         ;   //拼接后的数据使能信号
-logic             data_en_dly     ;   //
-logic     [7:0]   data            ;   //拼接后的数据
+logic             eth_rxdv_reg    ;
+logic     [3:0]   eth_rx_data_reg ;
+logic             data_sw_en      ;
+logic             data_en         ;
+logic             data_en_dly     ;
+logic     [7:0]   data            ;
 //
 state_t           state, nxt_state;   //
-logic             err_en          ;   //数据读取错误信号
+logic             err_en          ;   //错误信号
 logic     [15:0]  cnt_byte        ;   //
 logic     [47:0]  des_mac         ;   //
 logic     [31:0]  des_ip          ;   //
 logic     [5:0]   ip_head_len     ;   //20
 logic     [5:0]   udp_head_len    ;   //8
 logic     [15:0]  data_len        ;
+logic     [15:0]  total_data_len  ;   //include padding bytes
 //
 logic     [47:0]  src_mac         ;
 logic     [31:0]  src_ip          ;
 logic     [15:0]  src_port        ;
 logic     [15:0]  dst_port        ;
+logic     [31:0]  check_sum       ;
 //
 assign ip_head_len  = 6'd20;
 assign udp_head_len = 6'd8;
+assign total_data_len = (data_len < 16'd18) ? 16'd18: data_len;
 //state
 always_ff@(posedge sys_clk or negedge sys_rst_n) begin
     if(~sys_rst_n) begin
@@ -166,7 +170,7 @@ always_comb begin
                  else begin
                     nxt_state = UDP_HEAD;
                  end
-        REC_DATA: if(data_en && (cnt_byte == data_len - 1'b1)) begin           //
+        REC_DATA: if(data_en && (cnt_byte == total_data_len - 1'b1)) begin           //
                       nxt_state = REC_END;
                   end
                   else begin
@@ -198,10 +202,27 @@ always_ff@(posedge sys_clk or negedge sys_rst_n) begin
             ETH_HEAD:cnt_byte <= (cnt_byte == 16'd13) ? 16'd0: cnt_byte + 1'b1;
             IP_HEAD: cnt_byte <= (cnt_byte == ip_head_len - 1) ? 16'd0 : cnt_byte + 1'b1;
             UDP_HEAD:cnt_byte <= (cnt_byte == udp_head_len - 1) ? 16'd0 : cnt_byte + 1'b1;
-            REC_DATA:cnt_byte <= (cnt_byte == data_len - 1) ? 16'd0 : cnt_byte + 1'b1;
+            REC_DATA:cnt_byte <= (cnt_byte == total_data_len - 1) ? 16'd0 : cnt_byte + 1'b1;
             REC_END: cnt_byte <= (cnt_byte == 16'd3) ? '0 : cnt_byte + 1'b1;
             default: cnt_byte <= 16'd0;
         endcase
+    end
+end
+//check_sum
+always_ff@(posedge sys_clk or negedge sys_rst_n) begin
+    if(~sys_rst_n) begin
+        check_sum <= 31'd0;
+    end
+    else if(state == IP_HEAD && data_en) begin
+        case(cnt_byte[0])
+            1'b0: check_sum <= check_sum + {data, 8'h00};
+            1'b1: check_sum <= check_sum + {8'h00, data};
+        endcase
+    end
+    else if(state == UDP_HEAD && data_en) begin
+        if(cnt_byte < 16'd2) begin
+            check_sum <= check_sum[31:16] + check_sum[15:0];
+        end
     end
 end
 //des_mac
@@ -269,22 +290,47 @@ always_ff@(posedge sys_clk or negedge sys_rst_n) begin
     end
 end
 //err_en
-always_ff@(posedge sys_clk or negedge sys_rst_n) begin
-    if(~sys_rst_n) begin
-        err_en <= 1'b0;
-    end
-    else if((state == PACKET_HEAD) && data_en) begin
-        if(cnt_byte == 16'd6) begin
-            err_en <= (data != 8'hd5);
+generate 
+    if(ENABLE_CHECKSUM == 1) begin: gen_check_sum
+        always_ff@(posedge sys_clk or negedge sys_rst_n) begin
+            if(~sys_rst_n) begin
+                err_en <= 1'b0;
+            end
+            else if((state == PACKET_HEAD) && data_en) begin
+                if(cnt_byte == 16'd6) begin
+                    err_en <= (data != 8'hd5);
+                end
+                else begin
+                    err_en <= (data != 8'h55);
+                end
+            end
+            else if((nxt_state == PACKET_HEAD) && (state == IDLE) && (data != 8'h55)) begin
+                err_en <= 1'b1;
+            end
+            else if((state == UDP_HEAD) && (cnt_byte == 16'd2)) begin
+                err_en <= (check_sum[15:0] != 16'hffff) ? 1'b1: 1'b0;
+            end
         end
-        else begin
-            err_en <= (data != 8'h55);
+    end
+    else begin: gen_no_check_sum
+        always_ff@(posedge sys_clk or negedge sys_rst_n) begin
+            if(~sys_rst_n) begin
+                err_en <= 1'b0;
+            end
+            else if((state == PACKET_HEAD) && data_en) begin
+                if(cnt_byte == 16'd6) begin
+                    err_en <= (data != 8'hd5);
+                end
+                else begin
+                    err_en <= (data != 8'h55);
+                end
+            end
+            else if((nxt_state == PACKET_HEAD) && (state == IDLE) && (data != 8'h55)) begin
+                err_en <= 1'b1;
+            end
         end
     end
-    else if((nxt_state == PACKET_HEAD) && (state == IDLE) && (data != 8'h55)) begin
-        err_en <= 1'b1;
-    end
-end
+endgenerate
 //rec_data
 always_ff@(posedge sys_clk or negedge sys_rst_n) begin
     if(~sys_rst_n) begin
@@ -292,10 +338,10 @@ always_ff@(posedge sys_clk or negedge sys_rst_n) begin
     end
     else if(state == REC_DATA && data_en) begin
         case(cnt_byte[1:0]) 
-            2'd0 : rec_data[31:24]  <= data;
-            2'd1 : rec_data[23:16]  <= data;
-            2'd2 : rec_data[15:8]   <= data;
-            2'd3 : rec_data[7:0]    <= data;
+            2'd0 : rec_data[31:24] <= data;
+            2'd1 : rec_data[23:16] <= data;
+            2'd2 : rec_data[15:8]  <= data;
+            2'd3 : rec_data[7:0]   <= data;
         endcase
     end
 end
@@ -304,7 +350,7 @@ always_ff@(posedge sys_clk or negedge sys_rst_n) begin
     if(~sys_rst_n) begin
         rec_data_en <= 1'b0;
     end
-    else if(data_en && (state == REC_DATA) && (cnt_byte[1:0] == 2'd3)) begin
+    else if(data_en && (state == REC_DATA) && (cnt_byte[1:0] == 2'd3) && (cnt_byte < data_len -1'b1)) begin
         rec_data_en <= 1'b1;
     end
     else if(data_en && (state == REC_DATA) && (cnt_byte == data_len - 1'b1)) begin           //if data_len % 4 != 0

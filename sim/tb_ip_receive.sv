@@ -24,9 +24,9 @@ parameter  BOARD_IP  = {8'd169,8'd254,8'd1,8'd23};
 logic             eth_rx_clk          ;
 logic             eth_tx_clk          ;
 logic             sys_rst_n           ;
-logic             eth_rxdv            ;   //PHY芯片输入数据有效信号
-logic     [3:0]   data_mem [171:0]    ;   //data_mem是一个存储器,相当于一个ram
-logic     [7:0]   cnt_data            ;   //数据包字节计数器
+logic             eth_rxdv            ;
+logic     [3:0]   data_mem [171:0]    ;
+logic     [7:0]   cnt_data            ;
 logic             start_flag          ;
 //
 logic             rec_end             ;
@@ -38,10 +38,11 @@ logic     [3:0]   eth_rx_data         ;
 //********************************************************************//
 //***************************** Main Code ****************************//
 //********************************************************************//
-//读取sim文件夹下面的data.txt文件，并把读出的数据定义为data_mem
-initial $readmemh
-    ("C:/Users/DELL/Desktop/60_ethernet_udp_rmii/sim/data.txt",data_mem);
-
+//
+initial begin
+    $readmemh("C:/Users/DELL/Desktop/60_ethernet_udp_rmii/sim/data.txt",data_mem);
+end
+//
 logic [47:0] src_mac;
 logic [47:0] dest_mac;
 logic [31:0] src_ip;
@@ -50,7 +51,7 @@ logic [15:0] src_port;
 logic [15:0] dest_port;
 logic [15:0] data_len;
 logic [15:0] data_cnt;
-
+//
 initial begin
     #100
     src_mac = {data_mem[29],data_mem[28], data_mem[31],data_mem[30], data_mem[33],data_mem[32],
@@ -95,46 +96,52 @@ always_ff@(negedge eth_rx_clk) begin
     end
 end
 //clk and rst
-initial
-  begin
-    eth_rx_clk  =   1'b1    ;
-    eth_tx_clk  =   1'b1    ;
-    sys_rst_n   <=  1'b0    ;
-    start_flag  <=  1'b0    ;
+initial begin
+    eth_rx_clk = 1'b1;
+    eth_tx_clk = 1'b1;
+    sys_rst_n  <= 1'b0;
+    start_flag <= 1'b0;
     #200
-    sys_rst_n   <=  1'b1    ;
+    sys_rst_n  <= 1'b1;
     #100
-    start_flag  <=  1'b1    ;
+    start_flag <= 1'b1;
     #50
-    start_flag  <=  1'b0    ;
-  end
+    start_flag <= 1'b0;
+end
 
 always  #20 eth_rx_clk = ~eth_rx_clk;
 always  #20 eth_tx_clk = ~eth_tx_clk;
 
-//eth_rxdv:PHY芯片输入数据有效信号
-always@(negedge eth_rx_clk or negedge sys_rst_n)
-    if(sys_rst_n == 1'b0)
-        eth_rxdv    <=  1'b0;
-    else    if(cnt_data == 171)
-        eth_rxdv    <=  1'b0;
-    else    if(start_flag == 1'b1)
-        eth_rxdv    <=  1'b1;
-    else
-        eth_rxdv    <=  eth_rxdv;
+//eth_rxdv
+always@(negedge eth_rx_clk or negedge sys_rst_n) begin
+    if(sys_rst_n == 1'b0) begin
+        eth_rxdv <= 1'b0;
+    end
+    else if(cnt_data == 171) begin
+        eth_rxdv <= 1'b0;
+    end
+    else if(start_flag == 1'b1) begin
+        eth_rxdv <= 1'b1;
+    end
+    else begin
+        eth_rxdv <= eth_rxdv;
+    end
+end
 
-//cnt_data:数据包字节计数器
-always@(negedge eth_rx_clk or negedge sys_rst_n)
-    if(sys_rst_n == 1'b0)
-        cnt_data    <=  8'd0;
-    else    if(eth_rxdv == 1'b1)
-        cnt_data    <=  cnt_data + 1'b1;
-    else
-        cnt_data    <=  cnt_data;
-
-//eth_rx_data:PHY芯片输入数据
-assign  eth_rx_data = (eth_rxdv == 1'b1)
-                    ? data_mem[cnt_data] : 4'b0;
+//cnt_data
+always@(negedge eth_rx_clk or negedge sys_rst_n) begin
+    if(sys_rst_n == 1'b0) begin
+        cnt_data <= 8'd0;
+    end
+    else if(eth_rxdv == 1'b1) begin
+        cnt_data <= cnt_data + 1'b1;
+    end
+    else begin
+        cnt_data <= cnt_data;
+    end
+end
+//eth_rx_data
+assign  eth_rx_data = (eth_rxdv == 1'b1) ? data_mem[cnt_data] : 4'b0;
 
 //********************************************************************//
 //*************************** Instantiation **************************//
@@ -142,20 +149,21 @@ assign  eth_rx_data = (eth_rxdv == 1'b1)
 //------------- ethernet_inst -------------
 my_ip_receive
 #(
+    .ENABLE_CHECKSUM(0              ),
     .BOARD_MAC      (BOARD_MAC      ),  //板卡MAC地址
     .BOARD_IP       (BOARD_IP       )   //板卡IP地址
 )
 ip_receive_inst
 (
-    .sys_clk        (eth_rx_clk     ),  //时钟信号
-    .sys_rst_n      (sys_rst_n      ),  //复位信号,低电平有�?
-    .eth_rxdv       (eth_rxdv       ),  //数据有效信号
-    .eth_rx_data    (eth_rx_data    ),  //输入数据
+    .sys_clk        (eth_rx_clk     ),
+    .sys_rst_n      (sys_rst_n      ),
+    .eth_rxdv       (eth_rxdv       ),
+    .eth_rx_data    (eth_rx_data    ),
 
-    .rec_end        (rec_end        ),  //数据接收使能信号
-    .rec_data_en    (rec_en         ),  //接收数据
-    .rec_data       (rec_data       ),  //数据包接收完成信�?
-    .rec_data_num   (rec_data_num   )   //接收数据字节�?
+    .rec_end        (rec_end        ),
+    .rec_data_en    (rec_en         ),
+    .rec_data       (rec_data       ),
+    .rec_data_num   (rec_data_num   )
 );
 
 endmodule
