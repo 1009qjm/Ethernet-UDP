@@ -352,10 +352,10 @@ always_ff@(posedge sys_clk or negedge sys_rst_n) begin
     if(~sys_rst_n) begin
         rec_data_en <= 1'b0;
     end
-    else if(data_en && (state == REC_DATA) && (cnt_byte[1:0] == 2'd3) && (cnt_byte < data_len -1'b1)) begin
+    else if(data_en && (state == REC_DATA) && (cnt_byte[1:0] == 2'd3) && (cnt_byte + 1'b1 < data_len)) begin
         rec_data_en <= 1'b1;
     end
-    else if(data_en && (state == REC_DATA) && (cnt_byte == data_len - 1'b1)) begin           //if data_len % 4 != 0
+    else if(data_en && (state == REC_DATA) && (cnt_byte + 1'b1 == data_len)) begin           //if data_len % 4 != 0
         rec_data_en <= 1'b1;
     end
     else begin
@@ -367,7 +367,10 @@ always_ff@(posedge sys_clk or negedge sys_rst_n) begin
     if(~sys_rst_n) begin
         rec_end <= 1'b0;
     end
-    else if((state == REC_DATA) && data_en && (cnt_byte == data_len - 1'b1)) begin
+    else if((state == REC_DATA) && data_en && (cnt_byte + 1'b1 == data_len)) begin
+        rec_end <= 1'b1;
+    end
+    else if((state == REC_DATA) && data_en && (|cnt_byte == 1'b0) && (|data_len == 1'b0)) begin
         rec_end <= 1'b1;
     end
     else begin
@@ -379,7 +382,10 @@ always_ff@(posedge sys_clk or negedge sys_rst_n) begin
     if(~sys_rst_n) begin
         rec_data_num <= '0;
     end
-    else if((state == REC_DATA) && data_en && (cnt_byte == data_len - 1'b1)) begin
+    else if((state == REC_DATA) && data_en && (cnt_byte + 1'b1 == data_len)) begin
+        rec_data_num <= data_len;
+    end
+    else if((state == REC_DATA) && data_en && (|cnt_byte == 1'b0) && (|data_len == 1'b0)) begin
         rec_data_num <= data_len;
     end
 end

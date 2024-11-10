@@ -179,13 +179,18 @@ generate
         end
     end
     else begin:check_err_flag
-        wait(rec_end == 1'b1);
-        repeat(10) begin 
-            @(posedge eth_rx_clk);
-        end
-        if(err_flag == 1'b1) begin
-            $display("test failed\n");
-            $finish;
+        initial begin
+            wait(rec_end == 1'b1);
+            repeat(10) begin 
+                @(posedge eth_rx_clk);
+            end
+            if(err_flag == 1'b1) begin
+                $display("test failed");
+                $finish;
+            end
+            else begin
+                $display("test pass");
+            end
         end
     end
 endgenerate
