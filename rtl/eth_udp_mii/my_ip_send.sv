@@ -3,7 +3,6 @@
 // Author        : qjm
 // Create Date   : 2024/11/02
 // Module Name   : ip_send
-// Project Name  : eth_udp_rmii
 // Description   : UDP data sender
 // Revision      : V1.0
 // Additional Comments:
@@ -19,20 +18,20 @@ module my_ip_send
     parameter   PC_PORT     = 16'd1234                  //PC机端口号
 )
 (
-    input   logic            sys_clk         ,   //时钟信号
-    input   logic            sys_rst_n       ,   //复位信号
+    input   logic            sys_clk         ,
+    input   logic            sys_rst_n       ,
     input   logic            send_en         ,   //send start
-    input   logic    [31:0]  send_data       ,   //
-    input   logic    [15:0]  send_data_num   ,   //
-    input   logic    [31:0]  crc_data        ,   //CRC校验数据
-    input   logic    [3:0]   crc_next        ,   //CRC下次校验完成数据
+    input   logic    [31:0]  send_data       ,
+    input   logic    [15:0]  send_data_num   ,
+    input   logic    [31:0]  crc_data        ,
+    input   logic    [3:0]   crc_next        ,
 
     output  logic            send_end        ,   //send end flag
-    output  logic            read_data_req   ,   //读FIFO使能信号
-    output  logic            eth_tx_en       ,   //输出数据有效信号
-    output  logic    [3:0]   eth_tx_data     ,   //输出数据
-    output  logic            crc_en          ,   //CRC�?始校验使�?
-    output  logic            crc_clr             //CRC复位信号
+    output  logic            read_data_req   ,   //read FIFO req
+    output  logic            eth_tx_en       ,
+    output  logic    [3:0]   eth_tx_data     ,
+    output  logic            crc_en          ,
+    output  logic            crc_clr
 );
 
 //********************************************************************//
@@ -54,11 +53,11 @@ logic             rise_send_en    ;
 logic     [15:0]  send_data_len   ;   //send data length after padding
 //
 logic             send_en_dly     ;
-logic     [7:0]   packet_head[7:0];   //数据包头
-logic     [7:0]   eth_head[13:0]  ;   //以太网head
-logic     [31:0]  ip_udp_head[6:0];   //IP首部 + UDP首部
-logic     [31:0]  check_sum       ;   //IP首部check_sum校验
-logic     [15:0]  data_len        ;   //有效数据字节个数
+logic     [7:0]   packet_head[7:0];   //7+1=8 Bytes
+logic     [7:0]   eth_head[13:0]  ;   //eth head
+logic     [31:0]  ip_udp_head[6:0];   //IP head + UDP head
+logic     [31:0]  check_sum       ;   //IP head check_sum
+logic     [15:0]  data_len        ;   //valid data length
 logic     [15:0]  ip_len          ;   //IP length
 logic     [15:0]  udp_len         ;   //UDP length
 //fsm
@@ -149,7 +148,7 @@ always_ff@(posedge sys_clk or negedge sys_rst_n) begin
         eth_head[13]    <=  ETH_TYPE[7:0]   ;
     end
 end
-//ip_udp_head:IP首部 + UDP首部
+//ip_udp_head
 always_ff@(posedge sys_clk or negedge sys_rst_n) begin
     if(sys_rst_n == 1'b0) begin
         ip_udp_head[1][31:16] <= 16'd0;
@@ -169,7 +168,7 @@ always_ff@(posedge sys_clk or negedge sys_rst_n) begin
     end
 end
 
-//check_sum:IP首部check_sum校验
+//check_sum:IP head check_sum
 always_ff@(posedge sys_clk or negedge sys_rst_n) begin
     if(sys_rst_n == 1'b0) begin
         check_sum <= 32'd0;
@@ -245,7 +244,7 @@ always_comb begin
                       nxt_state = IP_UDP_HEAD;
                   end
                   else begin
-                    nxt_state = ETH_HEAD;
+                      nxt_state = ETH_HEAD;
                   end
         IP_UDP_HEAD:if(ip_udp_head_end) begin
                         nxt_state = SEND_DATA;
@@ -345,10 +344,10 @@ always_ff@(posedge sys_clk or negedge sys_rst_n) begin
     if(sys_rst_n == 1'b0) begin
         read_data_req <= 1'b0;
     end
-    else if((state == IP_UDP_HEAD) && (cnt_4bit == 3'd6) && (cnt_byte == 5'd6)) begin          //7 * 4Byte
+    else if((state == IP_UDP_HEAD) && (cnt_4bit == 3'd6) && (cnt_byte == 5'd6) && (data_len != 16'd0)) begin          //7 * 4Byte
         read_data_req <= 1'b1;
     end
-    else if((state == SEND_DATA) && (cnt_4bit == 3'd6) && (data_cnt < data_len - 16'd1)) begin
+    else if((state == SEND_DATA) && (cnt_4bit == 3'd6) && (data_cnt + 16'd1 < data_len)) begin
         read_data_req <= 1'b1;
     end
     else begin

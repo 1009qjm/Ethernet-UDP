@@ -14,7 +14,7 @@ module  tb_send_receive();
 //****************** Parameter and Internal Signal *******************//
 //********************************************************************//
 //parameter define
-parameter  SEND_BYTES = 3;
+parameter  SEND_BYTES = 0;
 parameter  SEND_WORDS = (SEND_BYTES+3)/4;
 //MAX and IP
 parameter  BOARD_MAC  = 48'h12_34_56_78_9A_BC;
@@ -176,6 +176,16 @@ generate
                     end
             endcase
             $display("test pass");
+        end
+    end
+    else begin:check_err_flag
+        wait(rec_end == 1'b1);
+        repeat(10) begin 
+            @(posedge eth_rx_clk);
+        end
+        if(err_flag == 1'b1) begin
+            $display("test failed\n");
+            $finish;
         end
     end
 endgenerate
