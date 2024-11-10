@@ -34,6 +34,7 @@ logic             rec_en              ;
 logic     [31:0]  rec_data            ;
 logic             rec_data_num        ;
 logic     [3:0]   eth_rx_data         ;
+logic             err_flag            ;
 
 //********************************************************************//
 //***************************** Main Code ****************************//
@@ -86,7 +87,12 @@ always_ff@(negedge eth_rx_clk) begin
         if(rec_data == ref_rec_data) begin
             $display("receive right data: %h\n", rec_data);
             if(rec_end) begin
-                $display("test pass\n");
+                if(err_flag) begin
+                    $display("test failed\n");
+                end
+                else begin
+                    $display("test pass\n");
+                end
             end
         end
         else begin
@@ -163,7 +169,8 @@ ip_receive_inst
     .rec_end        (rec_end        ),
     .rec_data_en    (rec_en         ),
     .rec_data       (rec_data       ),
-    .rec_data_num   (rec_data_num   )
+    .rec_data_num   (rec_data_num   ),
+    .err_flag       (err_flag       )
 );
 
 endmodule

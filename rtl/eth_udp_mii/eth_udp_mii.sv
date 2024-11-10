@@ -20,24 +20,24 @@ module  eth_udp_mii
     parameter   PC_PORT     = 16'd1234                  //PC机端口号
 )
 (
-    input   wire            eth_rx_clk      ,   //mii时钟,接收
-    input   wire            sys_rst_n       ,   //复位信号,低电平有效
-    input   wire            eth_rxdv        ,   //输入数据有效信号(mii)
-    input   wire    [3:0]   eth_rx_data     ,   //输入数据(mii)
-    input   wire            eth_tx_clk      ,   //mii时钟,发送
-    input   wire            send_en         ,   //开始发送信号
-    input   wire    [31:0]  send_data       ,   //发送数据
-    input   wire    [15:0]  send_data_num   ,   //发送有效数据字节数
+    input   wire            eth_rx_clk      ,
+    input   wire            sys_rst_n       ,
+    input   wire            eth_rxdv        ,
+    input   wire    [3:0]   eth_rx_data     ,
+    input   wire            eth_tx_clk      ,
+    input   wire            send_en         ,
+    input   wire    [31:0]  send_data       ,
+    input   wire    [15:0]  send_data_num   ,
 
-    output  wire            send_end        ,   //单包数据发送完成信号
-    output  wire            read_data_req   ,   //读数据请求信号
-    output  wire            rec_end         ,   //单包数据接收完成信号
-    output  wire            rec_en          ,   //接收数据使能信号
-    output  wire    [31:0]  rec_data        ,   //接收数据
-    output  wire    [15:0]  rec_data_num    ,   //接收有效数据字节数
-    output  wire            eth_tx_en       ,   //输出数据有效信号(mii)
-    output  wire    [3:0]   eth_tx_data     ,   //输出数据(mii)
-    output  wire            eth_rst_n           //复位信号,低电平有效
+    output  wire            send_end        ,
+    output  wire            read_data_req   ,
+    output  wire            rec_end         ,
+    output  wire            rec_en          ,
+    output  wire    [31:0]  rec_data        ,
+    output  wire    [15:0]  rec_data_num    ,
+    output  wire            eth_tx_en       ,
+    output  wire    [3:0]   eth_tx_data     ,
+    output  wire            eth_rst_n
 );
 
 //********************************************************************//
@@ -52,7 +52,7 @@ wire    [31:0]  crc_next;   //CRC下次校验完成数据
 //********************************************************************//
 //***************************** Main Code ****************************//
 //********************************************************************//
-//eth_rst_n:PHY芯片复位信号,低电平有效
+//eth_rst_n
 assign  eth_rst_n = 1'b1;
 
 //********************************************************************//
@@ -66,15 +66,15 @@ ip_receive
 )
 ip_receive_inst
 (
-    .sys_clk        (eth_rx_clk     ),  //时钟信号
-    .sys_rst_n      (sys_rst_n      ),  //复位信号,低电平有效
-    .eth_rxdv       (eth_rxdv       ),  //数据有效信号
-    .eth_rx_data    (eth_rx_data    ),  //输入数据
+    .sys_clk        (eth_rx_clk     ),
+    .sys_rst_n      (sys_rst_n      ),
+    .eth_rxdv       (eth_rxdv       ),
+    .eth_rx_data    (eth_rx_data    ),
 
-    .rec_end        (rec_end        ),  //数据接收使能信号
-    .rec_data_en    (rec_en         ),  //接收数据
-    .rec_data       (rec_data       ),  //数据包接收完成信号
-    .rec_data_num   (rec_data_num   )   //接收数据字节数
+    .rec_end        (rec_end        ),
+    .rec_data_en    (rec_en         ),
+    .rec_data       (rec_data       ),
+    .rec_data_num   (rec_data_num   )
 );
 
 //------------ ip_send_inst -------------
@@ -89,27 +89,27 @@ ip_send
 )
 ip_send_inst
 (
-    .sys_clk        (eth_tx_clk     ),  //时钟信号
-    .sys_rst_n      (sys_rst_n      ),  //复位信号,低电平有效
-    .send_en        (send_en        ),  //数据发送开始信号
-    .send_data      (send_data      ),  //发送数据
-    .send_data_num  (send_data_num  ),  //发送数据有效字节数
+    .sys_clk        (eth_tx_clk     ),
+    .sys_rst_n      (sys_rst_n      ),
+    .send_en        (send_en        ),
+    .send_data      (send_data      ),
+    .send_data_num  (send_data_num  ),
     .crc_data       (crc_data       ),  //CRC校验数据
     .crc_next       (crc_next[31:28]),  //CRC下次校验完成数据
 
-    .send_end       (send_end       ),  //单包数据发送完成标志信号
-    .read_data_req  (read_data_req  ),  //读FIFO使能信号
-    .eth_tx_en      (eth_tx_en      ),  //输出数据有效信号
-    .eth_tx_data    (eth_tx_data    ),  //输出数据
+    .send_end       (send_end       ),
+    .read_data_req  (read_data_req  ),
+    .eth_tx_en      (eth_tx_en      ),
+    .eth_tx_data    (eth_tx_data    ),
     .crc_en         (crc_en         ),  //CRC开始校验使能
     .crc_clr        (crc_clr        )   //crc复位信号
 );
 
 //------------ crc32_d4_inst -------------
-crc32_d4    crc32_d4_inst
+crc32_d4 crc32_d4_inst
 (
-    .sys_clk        (eth_tx_clk     ),  //时钟信号
-    .sys_rst_n      (sys_rst_n      ),  //复位信号,低电平有效
+    .sys_clk        (eth_tx_clk     ),
+    .sys_rst_n      (sys_rst_n      ),
     .data           (eth_tx_data    ),  //待校验数据
     .crc_en         (crc_en         ),  //crc使能,校验开始标志
     .crc_clr        (crc_clr        ),  //crc数据复位信号

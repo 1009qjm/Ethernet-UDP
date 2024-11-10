@@ -28,14 +28,14 @@ logic             eth_tx_clk      ;
 logic             clk_50m         ;
 logic             sys_rst_n       ;
 logic             send_en         ;   //send start flag
-logic     [31:0]  send_data       ;   //
-logic     [31:0]  data_mem [2:0]  ;   //data_mem是一个存储器,相当于一个ram
+logic     [31:0]  send_data       ;   //send data
+logic     [31:0]  data_mem [2:0]  ;
 logic     [15:0]  cnt_data        ;
 //
 logic            send_end        ;   //send finished flag 
-logic            read_data_req   ;   //读FIFO使能信号
-logic            eth_tx_en       ;   //输出数据有效信号
-logic    [3:0]   eth_tx_data     ;   //输出数据
+logic            read_data_req   ;   //read FIFO request
+logic            eth_tx_en       ;
+logic    [3:0]   eth_tx_data     ;
 logic            crc_en          ;
 logic            crc_clr         ;
 logic    [31:0]  crc_data        ;
@@ -147,32 +147,32 @@ my_ip_send
 )
 ip_send_inst
 (
-    .sys_clk        (eth_tx_clk     ),  //时钟信号
-    .sys_rst_n      (sys_rst_n      ),  //复位信号
+    .sys_clk        (eth_tx_clk     ),
+    .sys_rst_n      (sys_rst_n      ),
     .send_en        (send_en        ),  //send start flag
     .send_data      (send_data      ),  //send data
     .send_data_num  (16'd10         ),  //send data num(byte)
-    .crc_data       (crc_data       ),  //CRC校验数据
-    .crc_next       (crc_next[31:28]),  //CRC下次校验完成数据
+    .crc_data       (crc_data       ),
+    .crc_next       (crc_next[31:28]),
 
-    .send_end       (send_end       ),  //send finish flag
-    .read_data_req  (read_data_req  ),  //读FIFO使能信号
-    .eth_tx_en      (eth_tx_en      ),  //输出数据有效信号
-    .eth_tx_data    (eth_tx_data    ),  //输出数据
-    .crc_en         (crc_en         ),  //CRC�?始校验使�?
-    .crc_clr        (crc_clr        )   //crc复位信号
+    .send_end       (send_end       ),
+    .read_data_req  (read_data_req  ),
+    .eth_tx_en      (eth_tx_en      ),
+    .eth_tx_data    (eth_tx_data    ),
+    .crc_en         (crc_en         ),
+    .crc_clr        (crc_clr        )
 );
 //------------ crc32_d4_inst -------------
 crc32_d4    crc32_d4_inst
 (
-    .sys_clk        (eth_tx_clk     ),  //时钟信号
-    .sys_rst_n      (sys_rst_n      ),  //复位信号
-    .data           (eth_tx_data    ),  //待校验数�?
-    .crc_en         (crc_en         ),  //crc使能,校验�?始标�?
-    .crc_clr        (crc_clr        ),  //crc数据复位信号
+    .sys_clk        (eth_tx_clk     ),
+    .sys_rst_n      (sys_rst_n      ),
+    .data           (eth_tx_data    ),
+    .crc_en         (crc_en         ),
+    .crc_clr        (crc_clr        ),
 
-    .crc_data       (crc_data       ),  //CRC校验数据
-    .crc_next       (crc_next       )   //CRC下次校验完成数据
+    .crc_data       (crc_data       ),
+    .crc_next       (crc_next       )
 );
 
 endmodule

@@ -24,7 +24,8 @@ module my_ip_receive
     output  logic             rec_data_en ,
     output  logic     [31:0]  rec_data    ,
     output  logic             rec_end     ,
-    output  logic     [15:0]  rec_data_num
+    output  logic     [15:0]  rec_data_num,
+    output  logic             err_flag
 );
 
 //********************************************************************//
@@ -71,6 +72,7 @@ logic     [31:0]  check_sum       ;
 assign ip_head_len  = 6'd20;
 assign udp_head_len = 6'd8;
 assign total_data_len = (data_len < 16'd18) ? 16'd18: data_len;
+assign err_flag = err_en;
 //state
 always_ff@(posedge sys_clk or negedge sys_rst_n) begin
     if(~sys_rst_n) begin
